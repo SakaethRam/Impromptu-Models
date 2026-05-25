@@ -1,0 +1,79 @@
+
+/***************************************************************
+ Shot Engine v1.x — PROTOTYPE VERSION
+ API KEYS REMOVED FOR CLIQTRIX ’26 SUBMISSION
+ Shot Engine v1.x is a server-side service engine
+ /shot : Provides an overview & link to the Shot v1.x Bot
+ ***************************************************************/
+// Initialize response map
+response = Map();
+// ------------------------------------------------------------
+// Gemini API Configuration
+// ------------------------------------------------------------
+api_key = "GEMINI_API_KEY";
+url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=api_key";
+// Endpoint for Gemini model
+// ------------------------------------------------------------
+// Building the request body in a Deluge-compatible format
+// ------------------------------------------------------------
+body = Map();
+contents = List();
+userContent = Map();
+userContent.put("role","user");
+// Prepare the user message
+parts = List();
+part = Map();
+part.put("text",ifnull(arguments,"Hello Gemini!"));
+parts.add(part);
+// Assemble request content
+userContent.put("parts",parts);
+contents.add(userContent);
+body.put("contents",contents);
+// ------------------------------------------------------------
+// Invoke Gemini API and capture response
+// ------------------------------------------------------------
+resp = invokeurl
+[
+	url :url
+	type :POST
+	parameters:body.toString()
+	headers:{"Content-Type":"application/json"}
+	detailed:true
+];
+// Default fallback text
+answer = "No response from Gemini.";
+// ------------------------------------------------------------
+// Handle API response based on status codes
+// ------------------------------------------------------------
+if(resp.get("responseCode") == 200)
+{
+	json = resp.get("responseText").toMap();
+	candidates = json.get("candidates");
+	// Extract model output if available
+	if(candidates != null && candidates.size() > 0)
+	{
+		answer = candidates.get(0).get("content").get("parts").get(0).get("text").toString();
+	}
+}
+else if(resp.get("responseCode") == 429)
+{
+	// Rate limit handling
+	answer = "Gemini is busy right now. Please try again shortly.";
+}
+else
+{
+	// Generic error message for non-200 responses
+	answer = "Gemini error: " + resp.get("responseCode");
+}
+// ------------------------------------------------------------
+// Build output card for Cliq UI
+// ------------------------------------------------------------
+card = Map();
+card.put("theme","prompt");
+card.put("title","ZNZ Engine v1.0");
+response.put("card",card);
+// Attach plain-text output
+response.put("text",answer);
+response.put("text",answer + "\n\nTo experience full power, Chat directly with the Shot Engine v1.x Bot!");
+return response;
+

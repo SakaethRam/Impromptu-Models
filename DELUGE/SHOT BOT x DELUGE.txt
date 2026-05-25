@@ -1,0 +1,271 @@
+
+/************************************************************
+ Shot Engine v1.x — PROTOTYPE VERSION
+ >> API KEYS REMOVED FOR CLIQTRIX ’26 SUBMISSION
+ >> Shot Engine v1.x is a server-side service Engine
+*************************************************************/
+raw = message.trim();
+// ---------------------------------------------------------
+// Extract model keyword + prompt
+// ---------------------------------------------------------
+spaceIndex = raw.indexOf(" ");
+// If there is no space, user gave only a word → treat it as prompt
+if(spaceIndex == -1)
+{
+	selected_model = "#gemini";
+	question = raw;
+}
+else
+{
+	// Extract model keyword
+	selected_model = raw.substring(0,spaceIndex).toLowerCase();
+	// Extract the remaining prompt
+	question = raw.substring(spaceIndex + 1).trim();
+}
+// Map "gpt" → "openai"
+if(selected_model == "#chatgpt")
+{
+	selected_model = "#openai";
+}
+// Validate allowed models
+valid_models = List();
+valid_models.add("#openai");
+valid_models.add("#gemini");
+valid_models.add("#grok");
+// If invalid keyword → treat whole message as question, default to OpenAI
+if(!valid_models.contains(selected_model))
+{
+	question = raw;
+	selected_model = "#openai";
+}
+response = Map();
+// ---------------------------------------------------------
+// GEMINI HANDLER
+// ---------------------------------------------------------
+if(selected_model == "#gemini")
+{
+	info message;
+	// ======= GOOGLE GEMINI API DETAILS =======
+	api_key = "<GEMINI_API_KEY>";
+	url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=api_key";
+	// ======= HEADERS =======
+	header = Map();
+	header.put("Content-Type","application/json");
+	// ======= REQUEST BODY =======
+	body = Map();
+	contents_list = List();
+	part = Map();
+	part.put("text",question);
+	parts_list = List();
+	parts_list.add(part);
+	content = Map();
+	content.put("parts",parts_list);
+	contents_list.add(content);
+	body.put("contents",contents_list);
+	// ======= API CALL =======
+	fetchResponse = invokeurl
+	[
+		url :url
+		type :POST
+		parameters:body.toString()
+		headers:header
+		detailed:true
+	];
+	info "Gemini Raw Response: " + fetchResponse;
+	// ======= RESPONSE PROCESSING =======
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("candidates"))
+		{
+			candidates_list = parsed.get("candidates");
+			if(candidates_list.size() > 0)
+			{
+				candidate0 = candidates_list.get(0);
+				if(candidate0.containsKey("content"))
+				{
+					content0 = candidate0.get("content");
+					if(content0.containsKey("parts"))
+					{
+						parts0 = content0.get("parts");
+						if(parts0.size() > 0)
+						{
+							part0 = parts0.get(0);
+							if(part0.containsKey("text"))
+							{
+								answer = part0.get("text").toString();
+							}
+						}
+					}
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "Sorry, I couldn't parse the response. Try again!";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		errText = "";
+		if(fetchResponse.get("responseText") != null)
+		{
+			errText = fetchResponse.get("responseText").toString();
+		}
+		else
+		{
+			errText = "Unknown error (code: " + fetchResponse.get("responseCode") + ")";
+		}
+		response.put("text","Gemini Error: " + errText);
+	}
+}
+// ---------------------------------------------------------
+// GROK HANDLER (xAI)
+// ---------------------------------------------------------
+if(selected_model == "#grok")
+{
+	// ======= xAI GROK API DETAILS =======
+	grok_api_key = "<GROK_API_KEY>";
+	url_grok = "https://api.x.ai/v1/chat/completions";
+	model_grok = "grok-beta";
+	headers = Map();
+	headers.put("Content-Type","application/json");
+	headers.put("Authorization","Bearer " + grok_api_key);
+	// ======= REQUEST BODY =======
+	body = Map();
+	messages = List();
+	user_msg = Map();
+	user_msg.put("role","user");
+	user_msg.put("content",question);
+	messages.add(user_msg);
+	body.put("messages",messages);
+	body.put("model",model_grok);
+	body.put("temperature",0.7);
+	body.put("max_tokens",1500);
+	// ======= CALL GROK API =======
+	fetchResponse = invokeurl
+	[
+		url :url_grok
+		type :POST
+		parameters:body.toString()
+		headers:headers
+		detailed:true
+	];
+	info "Grok Raw Response: " + fetchResponse.toString();
+	// ======= EXTRACT RESPONSE =======
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("choices"))
+		{
+			choices = parsed.get("choices");
+			if(choices.size() > 0)
+			{
+				first_choice = choices.get(0);
+				message_map = first_choice.get("message");
+				if(message_map.containsKey("content"))
+				{
+					answer = message_map.get("content").toString();
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "Grok returned an empty reply.";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		error_detail = "Unknown error";
+		if(fetchResponse.get("responseText") != null)
+		{
+			error_detail = fetchResponse.get("responseText").toString();
+		}
+		response.put("text","Grok API Error: " + error_detail);
+	}
+}
+// ---------------------------------------------------------
+// OPENAI HANDLER
+// ---------------------------------------------------------
+if(selected_model == "#openai")
+{
+	openai_api_key = "<YOUR_OPENAI_API_KEY>";
+	url_openai = "https://api.openai.com/v1/chat/completions";
+	model_openai = "gpt-4o";
+	headers = Map();
+	headers.put("Content-Type","application/json");
+	headers.put("Authorization","Bearer " + openai_api_key);
+	body = Map();
+	messages = List();
+	user_msg = Map();
+	user_msg.put("role","user");
+	user_msg.put("content",question);
+	messages.add(user_msg);
+	body.put("messages",messages);
+	body.put("model",model_openai);
+	body.put("temperature",0.7);
+	body.put("max_tokens",1500);
+	// ======= CALL OPENAI API =======
+	fetchResponse = invokeurl
+	[
+		url :url_openai
+		type :POST
+		parameters:body.toString()
+		headers:headers
+		detailed:true
+	];
+	info "OpenAI Raw Response: " + fetchResponse.toString();
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("choices"))
+		{
+			choices = parsed.get("choices");
+			if(choices.size() > 0)
+			{
+				first_choice = choices.get(0);
+				message_map = first_choice.get("message");
+				if(message_map.containsKey("content"))
+				{
+					answer = message_map.get("content").toString();
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "OpenAI returned an empty reply.";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		error_detail = "Unknown error";
+		if(fetchResponse.get("responseText") != null)
+		{
+			error_text = fetchResponse.get("responseText").toString();
+			if(error_text.contains("error"))
+			{
+				error_map = error_text.toMap();
+				if(error_map.containsKey("error"))
+				{
+					err_obj = error_map.get("error");
+					if(err_obj.containsKey("message"))
+					{
+						error_detail = err_obj.get("message").toString();
+					}
+				}
+			}
+			else
+			{
+				error_detail = error_text;
+			}
+		}
+		response.put("text","OpenAI Error: " + error_detail);
+	}
+}
+return response;

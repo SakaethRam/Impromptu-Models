@@ -1,0 +1,315 @@
+
+/************************************************************
+Shot Engine v1.x — PROTOTYPE VERSION
+Auth0 Token Vault: ON-DEMAND LOGIN ONLY
+*************************************************************/
+// =========================================================
+// AUTH0 CONFIG
+// =========================================================
+AUTH0_DOMAIN = "<auth0>";
+AUTH0_CLIENT_ID = "<auth0_Client_ID>";
+AUTH0_AUDIENCE = "<ZOHO_Audience>";
+REDIRECT_URI = "<ZOHO_Calback>";
+// =========================================================
+// INPUT
+// =========================================================
+raw_lower = message.trim().toLowerCase();
+raw = message.trim();
+response = Map();
+// =========================================================
+// LOGIN TRIGGER (ONLY WHEN USER ASKS)
+// =========================================================
+if(raw_lower.contains("login"))
+{
+	user_id = zoho.loginuserid;
+	connection = "";
+	if(raw_lower.contains("github"))
+	{
+		connection = "github";
+	}
+	login_url = "https://" + AUTH0_DOMAIN + "/authorize" + "?response_type=code" + "&client_id=" + AUTH0_CLIENT_ID + "&redirect_uri=" + REDIRECT_URI + "&scope=openid profile email read:user repo" + "&state=" + user_id;
+	// Force GitHub login if requested
+	if(connection != "")
+	{
+		login_url = login_url + "&connection=" + connection;
+	}
+	response.put("text","Login required:\n" + login_url + "\n\nAfter login, return here and continue.");
+	return response;
+}
+// =========================================================
+// LOGOUT SUPPORT (OPTIONAL)
+// =========================================================
+if(raw_lower == "logout")
+{
+	response.put("text","Logged out. Token removal handled server-side.");
+	return response;
+}
+// =========================================================
+// CHECK TOKEN FROM BACKEND
+// =========================================================
+user_id = zoho.loginuserid;
+token_check_url = "https://your-render-app.onrender.com/check-token?user_id=" + user_id;
+checkResp = invokeurl
+[
+	url :token_check_url
+	type :GET
+	detailed:true
+];
+isLoggedIn = false;
+if(checkResp.get("responseCode") == 200)
+{
+	respMap = checkResp.get("responseText");
+	if(respMap != null && respMap.containsKey("authenticated"))
+	{
+		isLoggedIn = respMap.get("authenticated");
+	}
+}
+// =========================================================
+// GITHUB COMMAND (NEW)
+// =========================================================
+if(raw_lower.contains("github repos"))
+{
+	if(!isLoggedIn)
+	{
+		response.put("text","Authentication required. Type 'login github' to continue.");
+		return response;
+	}
+	api_url = "https://your-render-app.onrender.com/github/repos?user_id=" + user_id;
+	resp = invokeurl
+	[
+		url :api_url
+		type :GET
+		detailed:true
+	];
+	if(resp.get("responseCode") == 200)
+	{
+		data = resp.get("responseText");
+		response.put("text",data.toString());
+	}
+	else
+	{
+		response.put("text","Failed to fetch GitHub repositories.");
+	}
+	return response;
+}
+// =========================================================
+// PROTECTED MODE (ONLY FOR SENSITIVE KEYWORDS)
+// =========================================================
+if(raw_lower.contains("secure") || raw_lower.contains("vault"))
+{
+	if(!isLoggedIn)
+	{
+		response.put("text","Authentication required. Type 'login' to continue.");
+		return response;
+	}
+}
+// =========================================================
+// ORIGINAL SHOT ENGINE LOGIC (UNCHANGED)
+// =========================================================
+spaceIndex = raw.indexOf(" ");
+if(spaceIndex == -1)
+{
+	selected_model = "#gemini";
+	question = raw;
+}
+else
+{
+	selected_model = raw.substring(0,spaceIndex).toLowerCase();
+	question = raw.substring(spaceIndex + 1).trim();
+}
+if(selected_model == "#chatgpt")
+{
+	selected_model = "#openai";
+}
+valid_models = List();
+valid_models.add("#openai");
+valid_models.add("#gemini");
+valid_models.add("#grok");
+if(!valid_models.contains(selected_model))
+{
+	question = raw;
+	selected_model = "#gemini";
+}
+response = Map();
+// =========================================================
+// GEMINI HANDLER (UNCHANGED)
+// =========================================================
+if(selected_model == "#gemini")
+{
+	api_key = "<GEMINI_API_KEY>";
+	url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + api_key;
+	header = Map();
+	header.put("Content-Type","application/json");
+	body = Map();
+	contents_list = List();
+	part = Map();
+	part.put("text",question);
+	parts_list = List();
+	parts_list.add(part);
+	content = Map();
+	content.put("parts",parts_list);
+	contents_list.add(content);
+	body.put("contents",contents_list);
+	fetchResponse = invokeurl
+	[
+		url :url
+		type :POST
+		parameters:body.toString()
+		headers:header
+		detailed:true
+	];
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("candidates"))
+		{
+			candidates_list = parsed.get("candidates");
+			if(candidates_list.size() > 0)
+			{
+				candidate0 = candidates_list.get(0);
+				if(candidate0.containsKey("content"))
+				{
+					content0 = candidate0.get("content");
+					if(content0.containsKey("parts"))
+					{
+						parts0 = content0.get("parts");
+						if(parts0.size() > 0)
+						{
+							part0 = parts0.get(0);
+							if(part0.containsKey("text"))
+							{
+								answer = part0.get("text").toString();
+							}
+						}
+					}
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "Sorry, I couldn't parse the response.";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		response.put("text","Gemini API Error");
+	}
+}
+// =========================================================
+// GROK HANDLER (UNCHANGED)
+// =========================================================
+if(selected_model == "#grok")
+{
+	grok_api_key = "<GROK_API_KEY>";
+	url_grok = "https://api.x.ai/v1/chat/completions";
+	headers = Map();
+	headers.put("Content-Type","application/json");
+	headers.put("Authorization","Bearer " + grok_api_key);
+	body = Map();
+	messages = List();
+	user_msg = Map();
+	user_msg.put("role","user");
+	user_msg.put("content",question);
+	messages.add(user_msg);
+	body.put("messages",messages);
+	body.put("model","grok-beta");
+	body.put("temperature",0.7);
+	body.put("max_tokens",1500);
+	fetchResponse = invokeurl
+	[
+		url :url_grok
+		type :POST
+		parameters:body.toString()
+		headers:headers
+		detailed:true
+	];
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("choices"))
+		{
+			choices = parsed.get("choices");
+			if(choices.size() > 0)
+			{
+				first_choice = choices.get(0);
+				message_map = first_choice.get("message");
+				if(message_map.containsKey("content"))
+				{
+					answer = message_map.get("content").toString();
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "Grok returned empty response.";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		response.put("text","Grok API Error");
+	}
+}
+// =========================================================
+// OPENAI HANDLER (UNCHANGED)
+// =========================================================
+if(selected_model == "#openai")
+{
+	openai_api_key = "<YOUR_OPENAI_API_KEY>";
+	url_openai = "https://api.openai.com/v1/chat/completions";
+	headers = Map();
+	headers.put("Content-Type","application/json");
+	headers.put("Authorization","Bearer " + openai_api_key);
+	body = Map();
+	messages = List();
+	user_msg = Map();
+	user_msg.put("role","user");
+	user_msg.put("content",question);
+	messages.add(user_msg);
+	body.put("messages",messages);
+	body.put("model","gpt-4o");
+	body.put("temperature",0.7);
+	body.put("max_tokens",1500);
+	fetchResponse = invokeurl
+	[
+		url :url_openai
+		type :POST
+		parameters:body.toString()
+		headers:headers
+		detailed:true
+	];
+	answer = "";
+	if(fetchResponse.get("responseCode") == 200)
+	{
+		parsed = fetchResponse.get("responseText");
+		if(parsed != null && parsed.containsKey("choices"))
+		{
+			choices = parsed.get("choices");
+			if(choices.size() > 0)
+			{
+				first_choice = choices.get(0);
+				message_map = first_choice.get("message");
+				if(message_map.containsKey("content"))
+				{
+					answer = message_map.get("content").toString();
+				}
+			}
+		}
+		if(answer.isEmpty())
+		{
+			answer = "OpenAI returned empty response.";
+		}
+		response.put("text",answer);
+	}
+	else
+	{
+		response.put("text","OpenAI API Error");
+	}
+}
+// =========================================================
+// FINAL RESPONSE
+// =========================================================
+return response;
