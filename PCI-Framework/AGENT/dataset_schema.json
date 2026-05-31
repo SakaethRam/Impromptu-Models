@@ -1,0 +1,42 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "contract": {
+      "type": "object",
+      "description": "Enterprise SLA & governance metadata"
+    },
+    "version": {
+      "type": "string",
+      "description": "Output schema version"
+    },
+    "type": {
+      "type": "string",
+      "description": "Conversation format"
+    },
+    "generatedAt": {
+      "type": "string",
+      "description": "Generation timestamp"
+    },
+    "quality": {
+      "type": "object",
+      "description": "Signal & noise metadata"
+    },
+    "faqs": {
+      "type": "array",
+      "description": "Flat enterprise FAQ list"
+    },
+    "nodes": {
+      "type": "object",
+      "description": "Enterprise conversation graph"
+    }
+  },
+  "views": {
+    "overview": {
+      "title": "Enterprise Output",
+      "display": {
+        "component": "json",
+        "properties": {}
+      }
+    }
+  }
+}

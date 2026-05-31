@@ -1,0 +1,54 @@
+{
+  "title": "PCI Framework: Enterprise Output Schema",
+  "type": "object",
+  "description": "Chatbot-ready JSON generated from website FAQs & Scraped Data by PCI Framework.",
+  "properties": {
+    "generator": {
+      "type": "string",
+      "description": "Generator name",
+      "enum": ["PCI Framework"]
+    },
+    "type": {
+      "type": "string",
+      "description": "Conversation structure type",
+      "enum": ["flat", "tree"]
+    },
+
+    "faqs": {
+      "type": "array",
+      "description": "Flat FAQ output (when type=flat)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string" },
+          "answer": { "type": "string" }
+        },
+        "required": ["question", "answer"]
+      }
+    },
+
+    "nodes": {
+      "type": "object",
+      "description": "Tree-based chatbot flow (when type=tree)",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": { "type": "string" },
+                "next": { "type": "string" }
+              },
+              "required": ["text", "next"]
+            }
+          }
+        },
+        "required": ["message", "options"]
+      }
+    }
+  },
+  "required": ["generator", "type"]
+}

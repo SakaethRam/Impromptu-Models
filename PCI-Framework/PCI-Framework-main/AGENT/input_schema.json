@@ -1,0 +1,41 @@
+{
+  "title": "PCI Framework: Enterprise Input Schema",
+  "description": "Enterprise configuration for FAQ-to-chatbot compilation",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "FAQ URL",
+      "type": "string",
+      "description": "Public FAQ or documentation page",
+      "editor": "textfield",
+      "example": "https://example.com/faq"
+    },
+    "maxDepth": {
+      "title": "Crawl Depth",
+      "type": "integer",
+      "description": "Internal crawl depth",
+      "default": 1,
+      "minimum": 0
+    },
+    "categoriesToInclude": {
+      "title": "Category Filter",
+      "type": "array",
+      "description": "Keywords to filter FAQs",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "outputFormat": {
+      "title": "Output Format",
+      "type": "string",
+      "description": "Conversation structure",
+      "editor": "select",
+      "enum": ["simple", "tree"],
+      "default": "tree"
+    }
+  },
+  "required": ["startUrl"]
+}
